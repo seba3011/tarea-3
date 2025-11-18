@@ -1,0 +1,22 @@
+{
+  "sequence_number": 0,
+  "inventory": {
+    "LAPICES": {
+      "quantity": 100,
+      "price": 120
+    },
+    "LIBROS": {
+      "quantity": 50,
+      "price": 15500
+    },
+    "CUADERNOS": {
+      "quantity": 80,
+      "price": 3500
+    },
+    "CALCULADORAS": {
+      "quantity": 20,
+      "price": 25000
+    }
+  },
+  "event_log": []
+}
