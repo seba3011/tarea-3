@@ -50,7 +50,7 @@ func main() {
 		GlobalNode.PrimaryID = cfg.ID
 		GlobalNode.IsPrimary = true
 		fmt.Printf("[Nodo %d] 🟢 Soy el primario inicial\n", cfg.ID)
-		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
+		common.StartHeartbeatSender(cfg.ID, cfg.Peers) 
         // 💡 Si arranca como primario, anuncia inmediatamente
         common.announceCoordinator(cfg.ID, cfg.Peers)
 	} else {
