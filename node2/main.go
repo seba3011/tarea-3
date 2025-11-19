@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ConfigFile = "config.json"
+	ConfigFile = "node2/config.json"
 )
 
 // Estructura para contener el estado del nodo en memoria, incluyendo la lógica de coordinación.
