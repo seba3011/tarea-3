@@ -7,7 +7,8 @@ import (
 	"os"
 	"sync"
 	"bytes"
-
+	"net"     
+    "strconv"
 	"github.com/seba3011/tarea-3/common"
 )
 
