@@ -354,3 +354,16 @@ func saveState(filename string, state *common.NodeState) {
 		fmt.Printf("Error guardando estado: %v\n", err)
 	}
 }
+func (n *Node) getPrimaryID() int {
+	n.StateMutex.RLock()
+	defer n.StateMutex.RUnlock()
+	return n.PrimaryID
+}
+
+// Método para actualizar el PrimaryID de forma segura
+func (n *Node) setPrimaryID(id int) {
+	n.StateMutex.Lock()
+	defer n.StateMutex.Unlock()
+	n.PrimaryID = id
+	n.IsPrimary = (n.ID == id)
+}
