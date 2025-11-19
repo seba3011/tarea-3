@@ -12,10 +12,6 @@ const (
 	HeartbeatTimeout  = 5 * time.Second
 )
 
-// Asumo que esta función existe en el paquete common
-func sendMessage(host string, port int, msg Message) {
-	// Implementación real (omisión)
-}
 
 // ----------------------------------------------------------------------------------
 // Funciones Auxiliares
