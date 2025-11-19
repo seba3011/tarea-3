@@ -62,7 +62,10 @@ func HandleElectionRequest(myID int, senderHost string, senderPort int) {
 func announceCoordinator(id int, peers []Peer) {
 	msg := Message{Type: MsgCoordinator, SenderID: id, Time: time.Now()}
 	for _, peer := range peers {
-		go sendMessage(peer.Host, peer.Port, msg)
+        // 💡 CORRECCIÓN: NO ENVIAR al ganador
+		if peer.ID != id { 
+			go sendMessage(peer.Host, peer.Port, msg)
+			}
 	}
 }
 

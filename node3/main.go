@@ -37,11 +37,11 @@ func main() {
 	
 	// Inicializar el objeto Node
 	GlobalNode = &Node{
-		ID:  cfg.ID,
-		StateFile:  fmt.Sprintf("estado_node%d.json", cfg.ID),
-		IsPrimary:  cfg.IsPrimary,
-		PrimaryID:  -1, // Inicialmente desconocido
-		StateMutex: sync.RWMutex{},
+		ID:          cfg.ID,
+		StateFile:   fmt.Sprintf("estado_node%d.json", cfg.ID),
+		IsPrimary:   cfg.IsPrimary,
+		PrimaryID:   -1, // Inicialmente desconocido
+		StateMutex:  sync.RWMutex{},
 	}
 	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
 	
@@ -51,6 +51,8 @@ func main() {
 		GlobalNode.IsPrimary = true
 		fmt.Printf("[Nodo %d] 🟢 Soy el primario inicial\n", cfg.ID)
 		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
+        // 💡 Si arranca como primario, anuncia inmediatamente
+        common.AnnounceCoordinator(cfg.ID, cfg.Peers)
 	} else {
 		// Intentar sincronización si me reintegro
 		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
@@ -72,25 +74,28 @@ func main() {
 	http.HandleFunc("/client_request", HandleClientRequest)
 	http.HandleFunc("/sync", HandleSyncRequest)
 	
-	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Puerto de control/datos
+	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Asumiendo puerto de control/datos
 	
 	// ----------------------------------------------------
 	// Lógica de Coordinación
 	// ----------------------------------------------------
 	
 	// Monitoreo del primario
-	// 💡 ¡CORRECCIÓN CRÍTICA! Se pasan los dos argumentos faltantes.
 	common.StartHeartbeatMonitor(
 		cfg.ID,
 		cfg.Peers,
 		GlobalNode.getPrimaryID, // 1. getPrimaryID
 		func() { // 2. OnFailure (activar elección)
 			common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
-				GlobalNode.setPrimaryID(newLeader) // Usamos el nuevo método setPrimaryID
+				// Lógica de resolución de la elección
+				GlobalNode.setPrimaryID(newLeader) 
 				
-				if GlobalNode.IsPrimary { // Se actualiza después de setPrimaryID
+				if GlobalNode.IsPrimary { // true si newLeader == cfg.ID
 					fmt.Printf("[Nodo %d] 👑 He sido elegido como nuevo primario\n", cfg.ID)
 					common.StartHeartbeatSender(cfg.ID, cfg.Peers)
+					
+					// 💡 CORRECCIÓN CRÍTICA: ANUNCIAR LA VICTORIA
+					common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
 				}
 			})
 		},
