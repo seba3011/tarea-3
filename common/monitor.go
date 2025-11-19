@@ -3,7 +3,8 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"net" // Necesario para SplitHostPort y DialTimeout
+	"strconv" // Necesario para Atoi
 	"time"
 )
 
@@ -12,6 +13,7 @@ const (
 	HeartbeatTimeout  = 5 * time.Second
 )
 
+// Asumo que sendMessage, Message, Peer, Msg... existen.
 
 // ----------------------------------------------------------------------------------
 // Funciones Auxiliares
@@ -48,14 +50,16 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 	}()
 }
 
-func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func()) {
+// 💡 Firma modificada: Se añaden setPrimaryID y handleElectionRequest
+func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
 	var lastHeartbeat = time.Now()
-    
+	
+	// Goroutine 1: Monitoreo de Timeout
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
 			primaryID := getPrimaryID()
-            
+			
 			if primaryID <= 0 || primaryID == myID {
 				if primaryID != myID {
 					fmt.Printf("[Nodo %d] Primario desconocido (ID %d). Iniciando Elección.\n", myID, primaryID)
@@ -63,7 +67,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				}
 				continue
 			}
-            
+			
 			if time.Since(lastHeartbeat) > HeartbeatTimeout {
 				fmt.Printf("[Nodo %d] 💀 No se ha recibido heartbeat del Primario (%d). Iniciando elección\n", myID, primaryID)
 				startElection()
@@ -71,14 +75,15 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 		}
 	}()
 
+	// Goroutine 2: Listener de mensajes entrantes
 	localInfo, err := findLocalPeerInfo(myID, peers)
 	if err != nil {
 		fmt.Printf("Error de configuración: %v\n", err)
 		return 
 	}
-    
+	
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", localInfo.Port))
-    
+	
 	if err != nil {
 		fmt.Printf("Error iniciando escucha en nodo %d: %v\n", myID, err)
 		return
@@ -93,10 +98,33 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 		go func(c net.Conn) {
 			defer c.Close()
 			var msg Message
-			json.NewDecoder(c).Decode(&msg)
-
-			if msg.Type == MsgHeartbeat {
-				lastHeartbeat = time.Now() 
+			if err := json.NewDecoder(c).Decode(&msg); err != nil {
+				return
+			}
+			
+			// Obtener la dirección del remitente para la respuesta
+			senderHostPort := c.RemoteAddr().String()
+			host, portStr, _ := net.SplitHostPort(senderHostPort)
+			port, _ := strconv.Atoi(portStr)
+			
+			// Manejo de los 3 tipos de mensajes clave
+			switch msg.Type {
+			case MsgHeartbeat:
+				lastHeartbeat = time.Now()
+                
+			case MsgCoordinator:
+				// 💡 CORRECCIÓN CRUCIAL: Manejo de MsgCoordinator para salir del bucle de elección.
+				setPrimaryID(msg.SenderID) 
+				fmt.Printf("[Nodo %d] 🤝 Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
+                
+			case MsgElection:
+				if myID > msg.SenderID {
+					// 1. Respondo OK al nodo de menor ID
+					handleElectionRequest(myID, host, port) 
+					
+					// 2. 👑 PASO CRÍTICO DEL MATÓN: Inicio mi propia elección.
+					startElection() 
+				}
 			}
 		}(conn)
 	}
