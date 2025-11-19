@@ -104,8 +104,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 			
 			// Obtener la dirección del remitente para la respuesta
 			senderHostPort := c.RemoteAddr().String()
-			host, portStr, _ := net.SplitHostPort(senderHostPort)
-			port, _ := strconv.Atoi(portStr)
+			
 			
 			// Manejo de los 3 tipos de mensajes clave
 			switch msg.Type {
