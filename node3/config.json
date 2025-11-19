@@ -1,5 +1,5 @@
 {
-  "node_id": 1,
+  "node_id": 3,
   "local_address": "10.10.31.78:8083", 
   "known_nodes": [
     {"id": 1, "address": "10.10.31.76:8081"},
