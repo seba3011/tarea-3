@@ -301,27 +301,46 @@ func (n *Node) replicateEvent(event common.EventLog) {
 func loadConfig(filename string) *common.Config {
 	data, err := os.ReadFile(filename)
 	if err != nil {
+		// Error al encontrar o leer el archivo config.json (ej: ruta incorrecta)
 		panic(err)
 	}
 	var cfg common.Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
+		// Error al parsear el JSON (ej: etiquetas incorrectas en el struct common.Config)
 		panic(err)
 	}
-    
-    // 💡 LÓGICA AGREGADA: Extraer el puerto del campo LocalAddress
-    _, portStr, err := net.SplitHostPort(cfg.LocalAddress)
-    if err != nil {
-        panic(fmt.Errorf("error al parsear LocalAddress %s: %w", cfg.LocalAddress, err))
-    }
-    
-    portInt, err := strconv.Atoi(portStr)
-    if err != nil {
-        panic(fmt.Errorf("error al convertir puerto a entero: %w", err))
-    }
-    
-    // Asignar el puerto extraído al campo Port
-    cfg.Port = portInt
-    
+	
+	// 1. Extraer y asignar el Port del nodo local (LocalAddress)
+	_, portStr, err := net.SplitHostPort(cfg.LocalAddress)
+	if err != nil {
+		panic(fmt.Errorf("error al parsear LocalAddress %s: %w", cfg.LocalAddress, err))
+	}
+	
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil {
+		panic(fmt.Errorf("error al convertir puerto a entero: %w", err))
+	}
+	
+	cfg.Port = portInt
+	
+	// 2. Iterar sobre todos los peers conocidos y extraer Host/Port de Address
+	for i := range cfg.Peers {
+		peer := &cfg.Peers[i] // Obtener referencia
+		
+		host, portStr, err := net.SplitHostPort(peer.Address)
+		if err != nil {
+			panic(fmt.Errorf("error al parsear dirección de peer %s: %w", peer.Address, err))
+		}
+
+		portInt, err := strconv.Atoi(portStr)
+		if err != nil {
+			panic(fmt.Errorf("error al convertir puerto de peer %s a entero: %w", portStr, err))
+		}
+
+		peer.Host = host
+		peer.Port = portInt
+	}
+	
 	return &cfg
 }
 
