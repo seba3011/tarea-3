@@ -37,6 +37,7 @@ type Config struct {
     Peers       []Peer `json:"known_nodes"` 
     IsPrimary   bool `json:"is_primary"` 
     LocalAddress string `json:"local_address"`
+	Port         int
 }
 
 type ClientRequest struct {
