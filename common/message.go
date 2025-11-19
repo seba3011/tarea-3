@@ -19,11 +19,11 @@ const (
 	OpSetPrice      MessageType = "SET_PRICE"
 )
 
-type Message struct {
-	Type    MessageType `json:"type"`
-	SenderID int        `json:"sender_id"`
-	Payload any         `json:"payload,omitempty"`
-	Time    time.Time   `json:"time"`
+type Config struct {
+    ID          int    `json:"node_id"` 
+    Peers       []Peer `json:"known_nodes"` 
+    IsPrimary   bool `json:"is_primary"` 
+    LocalAddress string `json:"local_address"`
 }
 
 type Peer struct {
