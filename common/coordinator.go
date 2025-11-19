@@ -59,7 +59,7 @@ func HandleElectionRequest(myID int, senderHost string, senderPort int) {
 	sendMessage(senderHost, senderPort, okMsg)
 }
 
-func announceCoordinator(id int, peers []Peer) {
+func AnnounceCoordinator(id int, peers []Peer) {
 	msg := Message{Type: MsgCoordinator, SenderID: id, Time: time.Now()}
 	for _, peer := range peers {
         // 💡 CORRECCIÓN: NO ENVIAR al ganador
