@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"bytes"
 
 	"github.com/seba3011/tarea-3/common"
 )
@@ -260,29 +261,30 @@ func (n *Node) applyInventoryChange(event common.EventLog) {
 	}
 }
 
-// replicateEvent envía el nuevo evento a todos los nodos secundarios.
 func (n *Node) replicateEvent(event common.EventLog) {
 	// Esta es una función PLACEHOLDER.
-	// DEBES USAR la lista de Peers de la configuración para enviar el evento a todos los secundarios.
-	// common.SendEvent(event, n.config.Peers)
-	
+
 	// El primario tiene que tener acceso a la configuración
+	// Nota: Es más eficiente usar la configuración global si está disponible, 
+	// pero aquí respetamos la llamada a loadConfig(ConfigFile) de su código.
 	cfg := loadConfig(ConfigFile)
-	
+
 	for _, peer := range cfg.Peers {
 		if peer.ID != n.ID {
 			go func(p common.Peer) {
+				// Uso de p.Host y p.Port asumiendo que están definidos en common.Peer
 				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Port+1000)
-				
+
 				data, _ := json.Marshal(event)
-				
-				resp, err := http.Post(url, "application/json", os.NewFile(0, "").WriteString(string(data)))
+
+				// 💡 LÍNEA CORREGIDA: Se usa bytes.NewBuffer para el cuerpo de la petición.
+				resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
 				if err != nil {
 					fmt.Printf("[Nodo %d] Error replicando a %d: %v\n", n.ID, p.ID, err)
 					return
 				}
 				defer resp.Body.Close()
-				
+
 				if resp.StatusCode != http.StatusOK {
 					fmt.Printf("[Nodo %d] Error de secuencia/réplica en %d: %s\n", n.ID, p.ID, resp.Status)
 				}

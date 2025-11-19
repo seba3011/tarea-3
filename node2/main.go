@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
-
+	"bytes"
 
 	"github.com/seba3011/tarea-3/common"
 )
@@ -262,40 +262,37 @@ func (n *Node) applyInventoryChange(event common.EventLog) {
 }
 
 func (n *Node) replicateEvent(event common.EventLog) {
-    data, err := json.Marshal(event)
-    if err != nil {
-        fmt.Printf("[Nodo %d] ERROR: Fallo al serializar evento %d: %v\n", n.Config.NodeID, event.SeqNumber, err)
-        return
-    }
-    for _, peer := range n.Config.KnownNodes {
+	// Esta es una función PLACEHOLDER.
 
-        if peer.ID != n.Config.NodeID { 
+	// El primario tiene que tener acceso a la configuración
+	// Nota: Es más eficiente usar la configuración global si está disponible, 
+	// pero aquí respetamos la llamada a loadConfig(ConfigFile) de su código.
+	cfg := loadConfig(ConfigFile)
 
-            go func(p struct{ ID int; Address string }) { 
+	for _, peer := range cfg.Peers {
+		if peer.ID != n.ID {
+			go func(p common.Peer) {
+				// Uso de p.Host y p.Port asumiendo que están definidos en common.Peer
+				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Port+1000)
 
-                url := fmt.Sprintf("http://%s/replication_endpoint", p.Address) 
-                body := bytes.NewBuffer(data)
-                
-                // Enviar la petición POST
-                resp, err := http.Post(url, "application/json", body)
-                
-                if err != nil {
-                    fmt.Printf("[Nodo %d] ERROR: Fallo al contactar secundario %d (%s): %v\n", n.Config.NodeID, p.ID, p.Address, err)
-                    return
-                }
-                defer resp.Body.Close()
+				data, _ := json.Marshal(event)
 
-                if resp.StatusCode != http.StatusOK {
-                    responseBody, _ := io.ReadAll(resp.Body)
-                    fmt.Printf("[Nodo %d] ERROR de réplica en nodo %d. Estado: %s. Respuesta: %s\n", 
-                        n.Config.NodeID, p.ID, resp.Status, string(responseBody))
-                } else {
-                     fmt.Printf("[Nodo %d] Evento replicado con éxito a nodo %d.\n", n.Config.NodeID, p.ID)
-                }
-            }(peer)
-        }
-    }
+				// 💡 LÍNEA CORREGIDA: Se usa bytes.NewBuffer para el cuerpo de la petición.
+				resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
+				if err != nil {
+					fmt.Printf("[Nodo %d] Error replicando a %d: %v\n", n.ID, p.ID, err)
+					return
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					fmt.Printf("[Nodo %d] Error de secuencia/réplica en %d: %s\n", n.ID, p.ID, resp.Status)
+				}
+			}(peer)
+		}
+	}
 }
+
 // -------------------------
 // Utilidades auxiliares
 // -------------------------
