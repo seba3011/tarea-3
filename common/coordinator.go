@@ -48,7 +48,7 @@ waiting:
 		fmt.Printf("[Nodo %d] 🕓 Esperando coordinador\n", id)
 	} else {
 		fmt.Printf("[Nodo %d] 👑 Me proclamo coordinador\n", id)
-		announceCoordinator(id, peers)
+		AnnounceCoordinator(id, peers)
 		onNewLeader(id)
 	}
 }
