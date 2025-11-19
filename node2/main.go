@@ -37,11 +37,11 @@ func main() {
 	
 	// Inicializar el objeto Node
 	GlobalNode = &Node{
-		ID: cfg.ID,
-		StateFile:  fmt.Sprintf("estado_node%d.json", cfg.ID),
-		IsPrimary:  cfg.IsPrimary,
-		PrimaryID: -1, // Inicialmente desconocido
-		StateMutex: sync.RWMutex{},
+		ID:          cfg.ID,
+		StateFile:   fmt.Sprintf("estado_node%d.json", cfg.ID),
+		IsPrimary:   cfg.IsPrimary,
+		PrimaryID:   -1, // Inicialmente desconocido
+		StateMutex:  sync.RWMutex{},
 	}
 	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
 	
@@ -51,8 +51,9 @@ func main() {
 		GlobalNode.IsPrimary = true
 		fmt.Printf("[Nodo %d] 🟢 Soy el primario inicial\n", cfg.ID)
 		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
-        // 💡 Si arranca como primario, anuncia inmediatamente
-        common.AnnounceCoordinator(cfg.ID, cfg.Peers)
+		
+		// 💡 CORRECCIÓN 1: Anunciar la victoria al arrancar como primario.
+		common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
 	} else {
 		// Intentar sincronización si me reintegro
 		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
@@ -94,7 +95,7 @@ func main() {
 					fmt.Printf("[Nodo %d] 👑 He sido elegido como nuevo primario\n", cfg.ID)
 					common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 					
-					// 💡 CORRECCIÓN CRÍTICA: ANUNCIAR LA VICTORIA
+					// 💡 CORRECCIÓN 2: Anunciar la victoria después de ganar una elección.
 					common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
 				}
 			})
