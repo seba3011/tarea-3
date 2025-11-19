@@ -3,8 +3,8 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"net" // Necesario para SplitHostPort y DialTimeout
-	"strconv" // Necesario para Atoi
+	"net" 
+	"strconv" 
 	"time"
 )
 
@@ -50,7 +50,6 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 	}()
 }
 
-// 💡 Firma modificada: Se añaden setPrimaryID y handleElectionRequest
 func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
 	var lastHeartbeat = time.Now()
 	
@@ -60,14 +59,20 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 			time.Sleep(1 * time.Second)
 			primaryID := getPrimaryID()
 			
-			if primaryID <= 0 || primaryID == myID {
-				if primaryID != myID {
+			// 💡 Corrección 1: Si yo soy el Primario, no necesito monitorear ni iniciar elección.
+			if primaryID == myID {
+				continue 
+			}
+			
+			if primaryID <= 0 { // Primario desconocido (es decir, PrimaryID = -1)
+				if primaryID != myID { // Solo si no nos hemos proclamado nosotros mismos
 					fmt.Printf("[Nodo %d] Primario desconocido (ID %d). Iniciando Elección.\n", myID, primaryID)
 					startElection()
 				}
 				continue
 			}
 			
+			// Si hay un Primario conocido (primaryID > 0) que no soy yo, monitoreo su heartbeat
 			if time.Since(lastHeartbeat) > HeartbeatTimeout {
 				fmt.Printf("[Nodo %d] 💀 No se ha recibido heartbeat del Primario (%d). Iniciando elección\n", myID, primaryID)
 				startElection()
@@ -102,9 +107,9 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				return
 			}
 			
-			// Obtener la dirección del remitente para la respuesta
-			senderHostPort := c.RemoteAddr().String()
-			
+			// 💡 Corrección del error 'declared and not used'
+			host, portStr, _ := net.SplitHostPort(c.RemoteAddr().String())
+			port, _ := strconv.Atoi(portStr)
 			
 			// Manejo de los 3 tipos de mensajes clave
 			switch msg.Type {
@@ -112,27 +117,24 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				lastHeartbeat = time.Now()
                 
 			case MsgCoordinator:
-				// 💡 CORRECCIÓN CRUCIAL: Manejo de MsgCoordinator para salir del bucle de elección.
+				// 💡 Corrección 2: Ignorar el propio mensaje COORDINATOR si se envía a sí mismo
+				if msg.SenderID == myID {
+					return
+				}
+				
 				setPrimaryID(msg.SenderID) 
 				fmt.Printf("[Nodo %d] 🤝 Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
 			case MsgElection:
-				// 1. Si mi ID es MAYOR que el del emisor:
 				if myID > msg.SenderID {
-					// Obtener la dirección del remitente
-					senderHostPort := c.RemoteAddr().String()
-					host, portStr, _ := net.SplitHostPort(senderHostPort)
-					port, _ := strconv.Atoi(portStr)
-					
-					// Respondo OK (siempre)
+					// Respondo OK al nodo de menor ID
 					handleElectionRequest(myID, host, port) 
 					
-					// 2. 💡 CORRECCIÓN CRÍTICA: Solo inicio elección si NO soy el Primario
+					// 💡 Corrección 3: Solo inicio elección si NO soy el Primario
 					if getPrimaryID() != myID {
 						fmt.Printf("[Nodo %d] 👑 Soy mayor, pero no primario. Inicio mi propia elección.\n", myID)
 						startElection() 
 					} else {
-						// Soy el Primario (ID=3), solo respondo OK y no hago nada más.
 						fmt.Printf("[Nodo %d] 🟢 Primario activo, respondo OK a %d.\n", myID, msg.SenderID)
 					}
 				}
