@@ -28,6 +28,7 @@ type Message struct {
 
 type Peer struct {
 	ID   int    `json:"id"`
+	Address string `json:"address"`
 	Host string `json:"host"`
 	Port int    `json:"port"`
 }
