@@ -52,7 +52,7 @@ func main() {
 		fmt.Printf("[Nodo %d] 🟢 Soy el primario inicial\n", cfg.ID)
 		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
         // 💡 Si arranca como primario, anuncia inmediatamente
-        common.AnnounceCoordinator(cfg.ID, cfg.Peers)
+        common.announceCoordinator(cfg.ID, cfg.Peers)
 	} else {
 		// Intentar sincronización si me reintegro
 		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
@@ -95,7 +95,7 @@ func main() {
 					common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 					
 					// 💡 CORRECCIÓN CRÍTICA: ANUNCIAR LA VICTORIA
-					common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
+					common.announceCoordinator(cfg.ID, cfg.Peers) 
 				}
 			})
 		},
