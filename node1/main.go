@@ -37,13 +37,13 @@ func main() {
 	
 	// Inicializar el objeto Node
 	GlobalNode = &Node{
-		ID:          cfg.ID,
-		StateFile:   fmt.Sprintf("estado_node%d.json", cfg.ID),
-		IsPrimary:   cfg.IsPrimary,
-		PrimaryID:   -1, // Inicialmente desconocido
-		StateMutex:  sync.RWMutex{},
+		ID:  cfg.ID,
+		StateFile:  fmt.Sprintf("estado_node%d.json", cfg.ID),
+		IsPrimary:  cfg.IsPrimary,
+		PrimaryID:  -1, // Inicialmente desconocido
+		StateMutex: sync.RWMutex{},
 	}
-	GlobalNode.State = initState(GlobalNode.StateFile, cfg.ID)
+	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
 	
 	// Si el nodo arranca como Primario
 	if cfg.IsPrimary {
@@ -69,41 +69,33 @@ func main() {
 	// Inicialización de Servidores
 	// ----------------------------------------------------
 	
-	// 1. Servidor de Peticiones de Cliente (NUEVA RUTA)
-	// Los clientes contactarán esta ruta para READ/SET y para descubrir el líder.
 	http.HandleFunc("/client_request", HandleClientRequest)
-	
-	// 2. Servidor de Sincronización (Replicación y Transferencia de Estado)
 	http.HandleFunc("/sync", HandleSyncRequest)
 	
-	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Asumiendo puerto de control/datos
+	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Puerto de control/datos
 	
 	// ----------------------------------------------------
 	// Lógica de Coordinación
 	// ----------------------------------------------------
 	
 	// Monitoreo del primario
+	// 💡 ¡CORRECCIÓN CRÍTICA! Se pasan los dos argumentos faltantes.
 	common.StartHeartbeatMonitor(
 		cfg.ID,
 		cfg.Peers,
-		func() int { 
-			GlobalNode.StateMutex.RLock()
-			defer GlobalNode.StateMutex.RUnlock()
-			return GlobalNode.PrimaryID // Retorna el ID del primario conocido
-		},
-		func() { // OnFailure (activar elección)
+		GlobalNode.getPrimaryID, // 1. getPrimaryID
+		func() { // 2. OnFailure (activar elección)
 			common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
-				GlobalNode.StateMutex.Lock()
-				GlobalNode.PrimaryID = newLeader
-				GlobalNode.IsPrimary = (newLeader == cfg.ID)
-				GlobalNode.StateMutex.Unlock()
+				GlobalNode.setPrimaryID(newLeader) // Usamos el nuevo método setPrimaryID
 				
-				if GlobalNode.IsPrimary {
+				if GlobalNode.IsPrimary { // Se actualiza después de setPrimaryID
 					fmt.Printf("[Nodo %d] 👑 He sido elegido como nuevo primario\n", cfg.ID)
 					common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 				}
 			})
 		},
+		GlobalNode.setPrimaryID, // 3. setPrimaryID (Callback para MsgCoordinator)
+		common.HandleElectionRequest, // 4. HandleElectionRequest (Callback para MsgElection)
 	)
 
 	select {} // Mantiene proceso corriendo
@@ -361,4 +353,17 @@ func saveState(filename string, state *common.NodeState) {
 	if err := common.SaveState(filename, state); err != nil {
 		fmt.Printf("Error guardando estado: %v\n", err)
 	}
+}
+func (n *Node) getPrimaryID() int {
+	n.StateMutex.RLock()
+	defer n.StateMutex.RUnlock()
+	return n.PrimaryID
+}
+
+// Método para actualizar el PrimaryID de forma segura
+func (n *Node) setPrimaryID(id int) {
+	n.StateMutex.Lock()
+	defer n.StateMutex.Unlock()
+	n.PrimaryID = id
+	n.IsPrimary = (n.ID == id)
 }
