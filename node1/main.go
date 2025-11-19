@@ -260,41 +260,37 @@ func (n *Node) applyInventoryChange(event common.EventLog) {
 	}
 }
 
+// replicateEvent envía el nuevo evento a todos los nodos secundarios.
 func (n *Node) replicateEvent(event common.EventLog) {
-    data, err := json.Marshal(event)
-    if err != nil {
-        fmt.Printf("[Nodo %d] ERROR: Fallo al serializar evento %d: %v\n", n.Config.NodeID, event.SeqNumber, err)
-        return
-    }
-    for _, peer := range n.Config.KnownNodes {
-
-        if peer.ID != n.Config.NodeID { 
-
-            go func(p struct{ ID int; Address string }) { 
-
-                url := fmt.Sprintf("http://%s/replication_endpoint", p.Address) 
-                body := bytes.NewBuffer(data)
-                
-                // Enviar la petición POST
-                resp, err := http.Post(url, "application/json", body)
-                
-                if err != nil {
-                    fmt.Printf("[Nodo %d] ERROR: Fallo al contactar secundario %d (%s): %v\n", n.Config.NodeID, p.ID, p.Address, err)
-                    return
-                }
-                defer resp.Body.Close()
-
-                if resp.StatusCode != http.StatusOK {
-                    responseBody, _ := io.ReadAll(resp.Body)
-                    fmt.Printf("[Nodo %d] ERROR de réplica en nodo %d. Estado: %s. Respuesta: %s\n", 
-                        n.Config.NodeID, p.ID, resp.Status, string(responseBody))
-                } else {
-                     fmt.Printf("[Nodo %d] Evento replicado con éxito a nodo %d.\n", n.Config.NodeID, p.ID)
-                }
-            }(peer)
-        }
-    }
+	// Esta es una función PLACEHOLDER.
+	// DEBES USAR la lista de Peers de la configuración para enviar el evento a todos los secundarios.
+	// common.SendEvent(event, n.config.Peers)
+	
+	// El primario tiene que tener acceso a la configuración
+	cfg := loadConfig(ConfigFile)
+	
+	for _, peer := range cfg.Peers {
+		if peer.ID != n.ID {
+			go func(p common.Peer) {
+				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Port+1000)
+				
+				data, _ := json.Marshal(event)
+				
+				resp, err := http.Post(url, "application/json", os.NewFile(0, "").WriteString(string(data)))
+				if err != nil {
+					fmt.Printf("[Nodo %d] Error replicando a %d: %v\n", n.ID, p.ID, err)
+					return
+				}
+				defer resp.Body.Close()
+				
+				if resp.StatusCode != http.StatusOK {
+					fmt.Printf("[Nodo %d] Error de secuencia/réplica en %d: %s\n", n.ID, p.ID, resp.Status)
+				}
+			}(peer)
+		}
+	}
 }
+
 // -------------------------
 // Utilidades auxiliares
 // -------------------------
