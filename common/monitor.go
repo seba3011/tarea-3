@@ -118,12 +118,24 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				fmt.Printf("[Nodo %d] 🤝 Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
 			case MsgElection:
+				// 1. Si mi ID es MAYOR que el del emisor:
 				if myID > msg.SenderID {
-					// 1. Respondo OK al nodo de menor ID
+					// Obtener la dirección del remitente
+					senderHostPort := c.RemoteAddr().String()
+					host, portStr, _ := net.SplitHostPort(senderHostPort)
+					port, _ := strconv.Atoi(portStr)
+					
+					// Respondo OK (siempre)
 					handleElectionRequest(myID, host, port) 
 					
-					// 2. 👑 PASO CRÍTICO DEL MATÓN: Inicio mi propia elección.
-					startElection() 
+					// 2. 💡 CORRECCIÓN CRÍTICA: Solo inicio elección si NO soy el Primario
+					if getPrimaryID() != myID {
+						fmt.Printf("[Nodo %d] 👑 Soy mayor, pero no primario. Inicio mi propia elección.\n", myID)
+						startElection() 
+					} else {
+						// Soy el Primario (ID=3), solo respondo OK y no hago nada más.
+						fmt.Printf("[Nodo %d] 🟢 Primario activo, respondo OK a %d.\n", myID, msg.SenderID)
+					}
 				}
 			}
 		}(conn)
