@@ -7,7 +7,8 @@ import (
 	"os"
 	"sync"
 	"bytes"
-
+	"net"     
+    "strconv"
 	"github.com/seba3011/tarea-3/common"
 )
 
@@ -306,6 +307,21 @@ func loadConfig(filename string) *common.Config {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		panic(err)
 	}
+    
+    // 💡 LÓGICA AGREGADA: Extraer el puerto del campo LocalAddress
+    _, portStr, err := net.SplitHostPort(cfg.LocalAddress)
+    if err != nil {
+        panic(fmt.Errorf("error al parsear LocalAddress %s: %w", cfg.LocalAddress, err))
+    }
+    
+    portInt, err := strconv.Atoi(portStr)
+    if err != nil {
+        panic(fmt.Errorf("error al convertir puerto a entero: %w", err))
+    }
+    
+    // Asignar el puerto extraído al campo Port
+    cfg.Port = portInt
+    
 	return &cfg
 }
 
