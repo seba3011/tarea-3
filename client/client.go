@@ -21,9 +21,9 @@ import (
 
 // Lista de Nodos Conocidos (IP:Puerto de cada servidor)
 var KnownNodes = []string{
-	"10.10.31.76:8081", // Nodo 1 (ID 1)
-	"10.10.31.77:8082", // Nodo 2 (ID 2)
-	"10.10.31.78:8083", // Nodo 3 (ID 3)
+	"10.10.31.76:9081", // CORRECCIÓN: Puerto 8081 + 1000
+	"10.10.31.77:9082", // CORRECCIÓN: Puerto 8082 + 1000
+	"10.10.31.78:9083", // CORRECCIÓN: Puerto 8083 + 1000
 }
 
 const MaxRetries = 3
