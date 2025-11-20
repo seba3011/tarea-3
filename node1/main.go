@@ -75,7 +75,7 @@ func main() {
 	http.HandleFunc("/client_request", HandleClientRequest)
 	http.HandleFunc("/sync", HandleSyncRequest)
 	
-	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Por), nil) // Asumiendo puerto de control/datos
+	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Asumiendo puerto de control/datos
 	
 	// ----------------------------------------------------
 	// Lógica de Coordinación
@@ -270,7 +270,6 @@ func (n *Node) applyInventoryChange(event common.EventLog) {
     // NOTA: El inventario debe tener 4 artículos predefinidos al iniciar[cite: 100, 101].
     // Si tu lógica inicial de LoadState/initState no lo hace, también debe corregirse.
 }
-
 func (n *Node) replicateEvent(event common.EventLog) {
 	// Esta es una función PLACEHOLDER.
 
@@ -283,7 +282,7 @@ func (n *Node) replicateEvent(event common.EventLog) {
 		if peer.ID != n.ID {
 			go func(p common.Peer) {
 				// Uso de p.Host y p.Port asumiendo que están definidos en common.Peer
-				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Por)
+				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Port+1000)
 
 				data, _ := json.Marshal(event)
 
