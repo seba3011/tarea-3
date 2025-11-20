@@ -352,23 +352,46 @@ func loadConfig(filename string) *common.Config {
 	return &cfg
 }
 
-// initState inicializa o carga el estado del nodo.
 func initState(stateFile string, id int) *common.NodeState {
-	state, err := common.LoadState(stateFile)
-	if err != nil {
-		panic(err)
+	// 1. Intentar cargar el estado desde el archivo persistente
+	data, err := os.ReadFile(stateFile)
+	if err == nil {
+		var state common.NodeState
+		if err := json.Unmarshal(data, &state); err == nil {
+			fmt.Printf("[Nodo %d] Estado cargado exitosamente desde %s (Seq: %d)\n", id, stateFile, state.SequenceNumber)
+			return &state
+		}
 	}
 	
-	// Aquí ya no se necesita crear un estado inicial con ID, IsPrimary, etc.
-	// Si LoadState encontró un error IsNotExist, ya devolvió un NodeState con inventario vacío.
+	// 2. Si el archivo no existe, no se pudo leer, o falló la decodificación (json.Unmarshal):
+	//    Inicializar el estado con el inventario por defecto.
+	fmt.Printf("[Nodo %d] ⚠️ No se pudo cargar el estado persistente. Inicializando inventario predefinido.\n", id)
 	
-	return state
+	return &common.NodeState{
+		SequenceNumber: 0,
+		Inventory: map[string]common.Item{
+			"LAPICES":      {Quantity: 100, Price: 120},
+			"LIBROS":       {Quantity: 50, Price: 15500},
+			"CUADERNOS":    {Quantity: 80, Price: 3500},
+			"CALCULADORAS": {Quantity: 20, Price: 25000},
+		},
+		EventLog: []common.EventLog{},
+	}
 }
 
-func saveState(filename string, state *common.NodeState) {
-	if err := common.SaveState(filename, state); err != nil {
-		fmt.Printf("Error guardando estado: %v\n", err)
+func SaveState(filename string, state *NodeState) error {
+	// 1. Serializar el estado a JSON. Usamos MarshalIndent para un formato legible.
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error serializando estado a JSON: %w", err)
 	}
+
+	// 2. Escribir los datos JSON al archivo. Usamos permisos 0644.
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return fmt.Errorf("error escribiendo estado a archivo %s: %w", filename, err)
+	}
+
+	return nil
 }
 func (n *Node) getPrimaryID() int {
 	n.StateMutex.RLock()
