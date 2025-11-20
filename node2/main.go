@@ -14,7 +14,7 @@ import (
 
 const (
 	ConfigFile = "node2/config.json"
-	StateFile = "estado_node2.json"
+	StateFile = "node2/estado_node2.json"
 )
 
 // Estructura para contener el estado del nodo en memoria, incluyendo la lógica de coordinación.
