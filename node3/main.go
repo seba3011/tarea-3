@@ -380,20 +380,6 @@ func initState(stateFile string, id int) *common.NodeState {
 	}
 }
 
-func SaveState(filename string, state *NodeState) error {
-	// 1. Serializar el estado a JSON. Usamos MarshalIndent para un formato legible.
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error serializando estado a JSON: %w", err)
-	}
-
-	// 2. Escribir los datos JSON al archivo. Usamos permisos 0644.
-	if err := os.WriteFile(filename, data, 0644); err != nil {
-		return fmt.Errorf("error escribiendo estado a archivo %s: %w", filename, err)
-	}
-
-	return nil
-}
 func (n *Node) getPrimaryID() int {
 	n.StateMutex.RLock()
 	defer n.StateMutex.RUnlock()
