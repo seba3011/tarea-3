@@ -407,3 +407,14 @@ func (n *Node) setPrimaryID(id int) {
 	n.PrimaryID = id
 	n.IsPrimary = (n.ID == id)
 }
+// node3/main.go (Agregar esta función en cualquier parte fuera de 'main')
+
+// saveState es un wrapper local para manejar la persistencia del estado en disco.
+func saveState(filename string, state *common.NodeState) {
+    // 💡 Aquí llamamos a la función SaveState, que debe estar definida en common
+    if err := common.SaveState(filename, state); err != nil {
+        fmt.Printf("[Nodo %d] ❌ Error guardando estado en %s: %v\n", GlobalNode.ID, filename, err)
+    } else {
+        fmt.Printf("[Nodo %d] Estado guardado correctamente en %s\n", GlobalNode.ID, filename)
+    }
+}
