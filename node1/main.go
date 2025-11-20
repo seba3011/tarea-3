@@ -75,7 +75,7 @@ func main() {
 	http.HandleFunc("/client_request", HandleClientRequest)
 	http.HandleFunc("/sync", HandleSyncRequest)
 	
-	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) // Asumiendo puerto de control/datos
+	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Por), nil) // Asumiendo puerto de control/datos
 	
 	// ----------------------------------------------------
 	// Lógica de Coordinación
@@ -246,18 +246,29 @@ func (n *Node) NodeWriteOperation(req common.ClientRequest) {
 	n.replicateEvent(newEvent)
 }
 
-// applyInventoryChange aplica el evento de log al estado del inventario.
-// DEBE ser llamada dentro de un Lock/R-Lock.
 func (n *Node) applyInventoryChange(event common.EventLog) {
-	if item, exists := n.State.Inventory[event.Item]; exists {
-		if common.MessageType(event.Op) == common.OpSetQuantity {
-			item.Quantity = event.Value
-		} 
-		if common.MessageType(event.Op) == common.OpSetPrice {
-			item.Price = event.Value
-		}
-		n.State.Inventory[event.Item] = item 
+    item, exists := n.State.Inventory[event.Item]
+    
+    // 💡 CORRECCIÓN: Si el ítem no existe, lo inicializamos.
+    if !exists {
+        item = common.Item{
+            Quantity: 0, 
+            Price: 0,
+        }
+    }
+
+	if common.MessageType(event.Op) == common.OpSetQuantity {
+		item.Quantity = event.Value
+	} 
+	if common.MessageType(event.Op) == common.OpSetPrice {
+		item.Price = event.Value
 	}
+	
+    // 💡 Aseguramos que se guarde el ítem, sea nuevo o modificado.
+	n.State.Inventory[event.Item] = item 
+    
+    // NOTA: El inventario debe tener 4 artículos predefinidos al iniciar[cite: 100, 101].
+    // Si tu lógica inicial de LoadState/initState no lo hace, también debe corregirse.
 }
 
 func (n *Node) replicateEvent(event common.EventLog) {
@@ -272,7 +283,7 @@ func (n *Node) replicateEvent(event common.EventLog) {
 		if peer.ID != n.ID {
 			go func(p common.Peer) {
 				// Uso de p.Host y p.Port asumiendo que están definidos en common.Peer
-				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Port+1000)
+				url := fmt.Sprintf("http://%s:%d/sync?type=event", p.Host, p.Por)
 
 				data, _ := json.Marshal(event)
 

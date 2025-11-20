@@ -37,7 +37,7 @@ func main() {
 	
 	// Inicializar el objeto Node
 	GlobalNode = &Node{
-		ID: cfg.ID,
+		ID:           cfg.ID,
 		StateFile:  fmt.Sprintf("estado_node%d.json", cfg.ID),
 		IsPrimary:  cfg.IsPrimary,
 		PrimaryID:  -1, // Inicialmente desconocido
@@ -246,18 +246,29 @@ func (n *Node) NodeWriteOperation(req common.ClientRequest) {
 	n.replicateEvent(newEvent)
 }
 
-// applyInventoryChange aplica el evento de log al estado del inventario.
-// DEBE ser llamada dentro de un Lock/R-Lock.
 func (n *Node) applyInventoryChange(event common.EventLog) {
-	if item, exists := n.State.Inventory[event.Item]; exists {
-		if common.MessageType(event.Op) == common.OpSetQuantity {
-			item.Quantity = event.Value
-		} 
-		if common.MessageType(event.Op) == common.OpSetPrice {
-			item.Price = event.Value
-		}
-		n.State.Inventory[event.Item] = item 
+    item, exists := n.State.Inventory[event.Item]
+    
+    // 💡 CORRECCIÓN: Si el ítem no existe, lo inicializamos.
+    if !exists {
+        item = common.Item{
+            Quantity: 0, 
+            Price: 0,
+        }
+    }
+
+	if common.MessageType(event.Op) == common.OpSetQuantity {
+		item.Quantity = event.Value
+	} 
+	if common.MessageType(event.Op) == common.OpSetPrice {
+		item.Price = event.Value
 	}
+	
+    // 💡 Aseguramos que se guarde el ítem, sea nuevo o modificado.
+	n.State.Inventory[event.Item] = item 
+    
+    // NOTA: El inventario debe tener 4 artículos predefinidos al iniciar[cite: 100, 101].
+    // Si tu lógica inicial de LoadState/initState no lo hace, también debe corregirse.
 }
 
 func (n *Node) replicateEvent(event common.EventLog) {
