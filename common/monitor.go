@@ -10,10 +10,8 @@ import (
 
 const (
 	HeartbeatInterval = 2 * time.Second
-	HeartbeatTimeout  = 5 * time.Second
+	HeartbeatTimeout = 5 * time.Second
 )
-
-// Asumo que sendMessage, Message, Peer, Msg... existen.
 
 // ----------------------------------------------------------------------------------
 // Funciones Auxiliares
@@ -107,7 +105,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				return
 			}
 			
-			// 💡 Corrección del error 'declared and not used'
+			// Obtener información del remitente
 			host, portStr, _ := net.SplitHostPort(c.RemoteAddr().String())
 			port, _ := strconv.Atoi(portStr)
 			
@@ -115,7 +113,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 			switch msg.Type {
 			case MsgHeartbeat:
 				lastHeartbeat = time.Now()
-                
+				
 			case MsgCoordinator:
 				// 💡 Corrección 2: Ignorar el propio mensaje COORDINATOR si se envía a sí mismo
 				if msg.SenderID == myID {
@@ -124,18 +122,21 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				
 				setPrimaryID(msg.SenderID) 
 				fmt.Printf("[Nodo %d] 🤝 Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
-                
+				
 			case MsgElection:
 				if myID > msg.SenderID {
 					// Respondo OK al nodo de menor ID
 					handleElectionRequest(myID, host, port) 
 					
-					// 💡 Corrección 3: Solo inicio elección si NO soy el Primario
+					// 💡 Corrección 3: Lógica para Primario (reafirmar) o Mayor no-Primario (iniciar elección)
 					if getPrimaryID() != myID {
+						// Soy mayor, pero no soy el primario: inicio mi propia elección.
 						fmt.Printf("[Nodo %d] 👑 Soy mayor, pero no primario. Inicio mi propia elección.\n", myID)
 						startElection() 
 					} else {
-						fmt.Printf("[Nodo %d] 🟢 Primario activo, respondo OK a %d.\n", myID, msg.SenderID)
+						// ¡CORRECCIÓN CRÍTICA FINAL! Soy el Primario, respondo OK y reafirmamos el liderazgo.
+						fmt.Printf("[Nodo %d] 📢 Primario activo, respondo OK y reafirmo liderazgo a %d.\n", myID, msg.SenderID)
+						AnnounceCoordinator(myID, peers) 
 					}
 				}
 			}
