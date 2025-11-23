@@ -39,7 +39,7 @@ func main() {
 	// Inicializar el objeto Node
 	GlobalNode = &Node{
 		ID: cfg.ID,
-		StateFile:  fmt.Sprintf("estado_node%d.json", cfg.ID),
+		StateFile:   fmt.Sprintf("node%d/estado_node%d.json", cfg.ID, cfg.ID),
 		IsPrimary:  cfg.IsPrimary,
 		PrimaryID:  -1, // Inicialmente desconocido
 		StateMutex: sync.RWMutex{},
