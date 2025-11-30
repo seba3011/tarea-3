@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ]; then
-    echo "Error: Debe especificar el ID del nodo para ver el log."
+    echo "Error: Debe especificar el ID del nodo."
     exit 1
 fi
 
@@ -15,6 +15,5 @@ echo "=========================================="
 if [ -f "$LOG_FILE" ]; then
     tail -f "$LOG_FILE"
 else
-    echo "Error: El archivo de log '$LOG_FILE' no existe."
-    echo "Asegúrese de que el nodo $ID se haya iniciado con ./scripts/start_node.sh $ID"
+    echo "Error: El archivo '$LOG_FILE' no existe."
 fi

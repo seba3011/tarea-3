@@ -17,8 +17,9 @@ echo "=========================================="
 echo "-> Log: $LOG_FILE"
 echo "-> PID: $PID_FILE"
 
-nohup go run node"$ID"/main.go > "$LOG_FILE" 2>&1 &
+go build -o node${ID}/node node${ID}/main.go
+
+nohup ./node${ID}/node > "$LOG_FILE" 2>&1 &
 
 echo $! > "$PID_FILE"
-
 echo "-> Nodo $ID iniciado con PID: $(cat "$PID_FILE")"
