@@ -1,17 +1,15 @@
 #!/bin/bash
-if [ -z "$1" ]; then
-    exit 1
-fi
+if [ -z "$1" ]; then exit 1; fi
 
 ID=$1
+BASE_DIR=$(dirname "$0")/..
+cd "$BASE_DIR" || exit
 
-cd "$(dirname "$0")/.." || exit
+LOG_FILE="$BASE_DIR/logs/node${ID}.log"
+PID_FILE="$BASE_DIR/logs/node${ID}.pid"
+BIN="$BASE_DIR/node${ID}/node"
 
-LOG_FILE="logs/node${ID}.log"
-PID_FILE="logs/node${ID}.pid"
+go build -o "$BIN" "$BASE_DIR/node${ID}/main.go"
 
-go build -o node${ID}/node node${ID}/main.go
-
-nohup ./node${ID}/node > "$LOG_FILE" 2>&1 &
-
+nohup "$BIN" > "$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
