@@ -22,11 +22,15 @@ var currentHeartbeatStop *chan struct{}
 // Usamos un valor atómico para garantizar que las lecturas y escrituras concurrentes sean seguras.
 var lastHeartbeat int64
 
-// Función helper para guardar la hora actual (time.Now().UnixNano()) de forma atómica
-func updateLastHeartbeatAtomic() {
+
+func UpdateLastHeartbeatAtomic() {
     atomic.StoreInt64(&lastHeartbeat, time.Now().UnixNano())
 }
 
+func ReadLastHeartbeatAtomic() time.Time {
+    nano := atomic.LoadInt64(&lastHeartbeat)
+    return time.Unix(0, nano)
+}
 // Función helper para leer el tiempo (time.Time) de forma atómica
 func readLastHeartbeatAtomic() time.Time {
     nano := atomic.LoadInt64(&lastHeartbeat)
