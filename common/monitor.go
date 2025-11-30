@@ -7,7 +7,7 @@ import (
     "strconv" 
     "time"
     "sync/atomic" // Necesario para manipular lastHeartbeat de forma atómica
-    "unsafe"      // Necesario para el puntero atómico a lastHeartbeat
+
 )
 
 const (
