@@ -91,7 +91,7 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 }
 
 func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
-    // Inicializar el tiempo de latido de forma atómica al inicio
+    // La inicialización de lastHeartbeat se hace al inicio de StartHeartbeatMonitor
     atomic.StoreInt64(&lastHeartbeat, time.Now().UnixNano())
 
     go func() {
@@ -110,7 +110,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 continue
             }
 
-            if time.Since(readLastHeartbeatAtomic()) > HeartbeatTimeout { // Lectura atómica
+            if time.Since(readLastHeartbeatAtomic()) > HeartbeatTimeout {
                 fmt.Printf("[Nodo %d] No se ha recibido heartbeat del Primario (%d). Iniciando elección\n", myID, primaryID)
                 startElection()
             }
@@ -148,30 +148,26 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 
             switch msg.Type {
             case MsgHeartbeat:
-                updateLastHeartbeatAtomic() // Escritura atómica
+                updateLastHeartbeatAtomic()
                 
             case MsgCoordinator:
                 if msg.SenderID == myID {
                     return
                 }
                 
-                // Si estamos en elección, NO debemos aceptar ciegamente al COORDINATOR
-                // Es necesario agregar lógica de IsElecting o timeout aquí para evitar el bucle.
-                // Sin embargo, para no agregar variables, se mantiene la simpleza:
                 setPrimaryID(msg.SenderID) 
+                // AHORA se reinicia el contador de latidos al aceptar un nuevo Primario.
+                updateLastHeartbeatAtomic() 
                 fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
             case MsgElection:
                 if myID > msg.SenderID {
                     handleElectionRequest(myID, host, port) 
 
-                    // Si el nodo es Primario activo (ya tiene el liderazgo), debe reafirmarlo.
                     if getPrimaryID() == myID { 
                         fmt.Printf("[Nodo %d] Primario activo, respondo OK y reafirmo liderazgo a %d.\n", myID, msg.SenderID)
                         AnnounceCoordinator(myID, peers) 
-                    } 
-                    // Si no es el primario, responder OK es suficiente. 
-                    // El monitor se encargará de iniciar la elección si es necesario (si no recibe COORDINATOR).
+                    }
                 }
             }
         }(conn)
