@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	ConfigFile = "config.json"
-	StateFile = "estado_node2.json"
+	ConfigFile = "node2/config.json"
+	StateFile = "node2/estado_node2.json"
 )
 
 type Node struct {
