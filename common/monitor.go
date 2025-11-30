@@ -7,7 +7,6 @@ import (
     "strconv" 
     "time"
     "sync/atomic" // Necesario para manipular lastHeartbeat de forma atómica
-
 )
 
 const (
@@ -19,23 +18,20 @@ const (
 var currentHeartbeatStop *chan struct{}
 
 // lastHeartbeat se almacena como un valor int64 (nanosegundos) para ser manipulado atómicamente.
-// Usamos un valor atómico para garantizar que las lecturas y escrituras concurrentes sean seguras.
 var lastHeartbeat int64
 
 
+// UpdateLastHeartbeatAtomic: FUNCIÓN PÚBLICA (EXPORTADA) para actualizar el tiempo del último latido.
 func UpdateLastHeartbeatAtomic() {
     atomic.StoreInt64(&lastHeartbeat, time.Now().UnixNano())
 }
 
+// ReadLastHeartbeatAtomic: FUNCIÓN PÚBLICA (EXPORTADA) para leer el tiempo de forma atómica.
 func ReadLastHeartbeatAtomic() time.Time {
     nano := atomic.LoadInt64(&lastHeartbeat)
     return time.Unix(0, nano)
 }
-// Función helper para leer el tiempo (time.Time) de forma atómica
-func readLastHeartbeatAtomic() time.Time {
-    nano := atomic.LoadInt64(&lastHeartbeat)
-    return time.Unix(0, nano)
-}
+
 
 func findLocalPeerInfo(myID int, peers []Peer) (Peer, error) {
     for _, peer := range peers {
@@ -95,8 +91,8 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 }
 
 func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
-    // La inicialización de lastHeartbeat se hace al inicio de StartHeartbeatMonitor
-    atomic.StoreInt64(&lastHeartbeat, time.Now().UnixNano())
+    // Inicialización del contador atómico (con Mayúscula)
+    UpdateLastHeartbeatAtomic()
 
     go func() {
         for {
@@ -114,7 +110,8 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 continue
             }
 
-            if time.Since(readLastHeartbeatAtomic()) > HeartbeatTimeout {
+            // USO DE LA FUNCIÓN CON MAYÚSCULA
+            if time.Since(ReadLastHeartbeatAtomic()) > HeartbeatTimeout {
                 fmt.Printf("[Nodo %d] No se ha recibido heartbeat del Primario (%d). Iniciando elección\n", myID, primaryID)
                 startElection()
             }
@@ -152,6 +149,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 
             switch msg.Type {
             case MsgHeartbeat:
+                // USO DE LA FUNCIÓN CON MAYÚSCULA
                 UpdateLastHeartbeatAtomic()
                 
             case MsgCoordinator:
@@ -160,7 +158,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 }
                 
                 setPrimaryID(msg.SenderID) 
-                // AHORA se reinicia el contador de latidos al aceptar un nuevo Primario.
+                // USO DE LA FUNCIÓN CON MAYÚSCULA
                 UpdateLastHeartbeatAtomic() 
                 fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
