@@ -11,5 +11,5 @@ LOG_FILE="logs/node$ID.log"
 if [ -f "$LOG_FILE" ]; then
   tail -f "$LOG_FILE"
 else
-  echo "⚠️ Log no encontrado para nodo $ID"
+  echo "Log no encontrado para nodo $ID"
 fi

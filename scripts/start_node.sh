@@ -8,5 +8,5 @@ fi
 ID=$1
 cd node$ID || exit
 
-echo "🚀 Iniciando nodo $ID..."
+echo "Iniciando nodo $ID..."
 nohup go run main.go > "../logs/node$ID.log" 2>&1 & echo $! > "../logs/node$ID.pid"

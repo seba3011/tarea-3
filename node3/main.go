@@ -50,9 +50,9 @@ func main() {
 			GlobalNode.State = syncedState 
 			GlobalNode.StateMutex.Unlock()
 			saveState(GlobalNode.StateFile, GlobalNode.State)
-			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente. Última Seq: %d\n", cfg.ID, syncedState.SequenceNumber)
+			fmt.Printf("[Nodo %d] Estado sincronizado correctamente. Última Seq: %d\n", cfg.ID, syncedState.SequenceNumber)
 		} else {
-			fmt.Printf("[Nodo %d] ⚠️ No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
+			fmt.Printf("[Nodo %d] No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
 		}
 	}
 	

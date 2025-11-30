@@ -26,7 +26,7 @@ func RequestSync(myID int, peers []Peer) (*NodeState, error) {
 			return nil, err
 		}
 
-		fmt.Printf("[Nodo %d] 🔁 Estado recibido del primario (ID %d)\n", myID, peer.ID)
+		fmt.Printf("[Nodo %d] Estado recibido del primario (ID %d)\n", myID, peer.ID)
 		return &state, nil
 	}
 	return nil, fmt.Errorf("no se pudo contactar a ningún primario")
