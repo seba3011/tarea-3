@@ -6,7 +6,7 @@ import (
     "net" 
     "strconv" 
     "time"
-    "sync/atomic" // Necesario para manipular lastHeartbeat de forma atómica
+    "sync/atomic"
 )
 
 const (
@@ -14,23 +14,20 @@ const (
     HeartbeatTimeout = 5 * time.Second
 )
 
-// currentHeartbeatStop sigue el patrón de puntero a canal para detener el HeartbeatSender sin Mutex
 var currentHeartbeatStop *chan struct{}
-
-// lastHeartbeat se almacena como un valor int64 (nanosegundos) para ser manipulado atómicamente.
 var lastHeartbeat int64
 
 
-// UpdateLastHeartbeatAtomic: FUNCIÓN PÚBLICA (EXPORTADA) para actualizar el tiempo del último latido.
+// Funciones atómicas EXPORTADAS (Mayúscula)
 func UpdateLastHeartbeatAtomic() {
     atomic.StoreInt64(&lastHeartbeat, time.Now().UnixNano())
 }
 
-// ReadLastHeartbeatAtomic: FUNCIÓN PÚBLICA (EXPORTADA) para leer el tiempo de forma atómica.
 func ReadLastHeartbeatAtomic() time.Time {
     nano := atomic.LoadInt64(&lastHeartbeat)
     return time.Unix(0, nano)
 }
+// FIN DE FUNCIONES ATÓMICAS
 
 
 func findLocalPeerInfo(myID int, peers []Peer) (Peer, error) {
@@ -48,7 +45,6 @@ func StartHeartbeatSender(myID int, peers []Peer) {
     
     oldStopChPtr := currentHeartbeatStop
     
-    // Asignación atómica del puntero global
     currentHeartbeatStop = &newStopCh 
     
     if oldStopChPtr != nil {
@@ -78,7 +74,7 @@ func StartHeartbeatSender(myID int, peers []Peer) {
                 }
                 for _, peer := range peers {
                     if peer.ID != myID {
-                        fmt.Printf("[Nodo %d] >>> Enviando Heartbeat a %d\n", myID, peer.ID) 
+                        // Aquí es donde se envía el latido (a Peer.Port)
                         go sendMessage(peer.Host, peer.Port, msg)
                     }
                 }
@@ -91,18 +87,22 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 }
 
 func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
-    // Inicialización del contador atómico (con Mayúscula)
+    // Inicialización del contador atómico
     UpdateLastHeartbeatAtomic()
 
     go func() {
         for {
             time.Sleep(1 * time.Second)
             primaryID := getPrimaryID()
+            
+            // Si soy el primario, no monitoreo
             if primaryID == myID {
                 continue 
             }
             
+            // Si el primario es desconocido (PrimaryID = -1 después de un sync fallido)
             if primaryID <= 0 {
+                // Si PrimaryID == -1, se dispara la elección
                 if primaryID != myID { 
                     fmt.Printf("[Nodo %d] Primario desconocido (ID %d). Iniciando Elección.\n", myID, primaryID)
                     startElection()
@@ -110,9 +110,10 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 continue
             }
 
-            // USO DE LA FUNCIÓN CON MAYÚSCULA
+            // LÓGICA CRÍTICA DE TIMEOUT:
             if time.Since(ReadLastHeartbeatAtomic()) > HeartbeatTimeout {
-                fmt.Printf("[Nodo %d] No se ha recibido heartbeat del Primario (%d). Iniciando elección\n", myID, primaryID)
+                fmt.Printf("[Nodo %d] No se ha recibido heartbeat del Primario (%d) en más de %s. Iniciando elección.\n", 
+                    myID, primaryID, HeartbeatTimeout.String())
                 startElection()
             }
         }
@@ -124,6 +125,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
         return 
     }
     
+    // El listener de Heartbeats usa Peer.Port
     ln, err := net.Listen("tcp", fmt.Sprintf(":%d", localInfo.Port))
     
     if err != nil {
@@ -149,8 +151,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 
             switch msg.Type {
             case MsgHeartbeat:
-                // USO DE LA FUNCIÓN CON MAYÚSCULA
-                UpdateLastHeartbeatAtomic()
+                UpdateLastHeartbeatAtomic() // Actualiza el tiempo
                 
             case MsgCoordinator:
                 if msg.SenderID == myID {
@@ -158,8 +159,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 }
                 
                 setPrimaryID(msg.SenderID) 
-                // USO DE LA FUNCIÓN CON MAYÚSCULA
-                UpdateLastHeartbeatAtomic() 
+                UpdateLastHeartbeatAtomic() // Actualiza el tiempo al aceptar un nuevo líder
                 fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
             case MsgElection:
