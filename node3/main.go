@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"net" 	
 	"strconv"
-	"time"
 	"github.com/seba3011/tarea-3/common"
 )
 
@@ -29,16 +28,6 @@ type Node struct {
 
 var GlobalNode *Node 
 
-// Variables y Mutex para controlar el tiempo del último latido de forma segura en main.go
-var lastHeartbeat time.Time
-var heartbeatMutex sync.Mutex
-
-func updateLastHeartbeat() {
-    heartbeatMutex.Lock()
-    defer heartbeatMutex.Unlock()
-    lastHeartbeat = time.Now()
-}
-
 func main() {
 	cfg := loadConfig(ConfigFile)
 	GlobalNode = &Node{
@@ -50,8 +39,8 @@ func main() {
 	}
 	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
 	
-	// Inicializar el tiempo de latido
-	updateLastHeartbeat()
+	// Asegurarse de que el contador atómico esté inicializado, aunque common.StartHeartbeatMonitor también lo hace.
+	common.UpdateLastHeartbeatAtomic()
 	
 	if cfg.IsPrimary {
 		GlobalNode.PrimaryID = cfg.ID
@@ -60,19 +49,18 @@ func main() {
 		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 		common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
 	} else {
-		// Corrección: Intenta sincronizar y establece el PrimaryID conocido.
-		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
+		// CORRECCIÓN: RequestSync ahora devuelve el estado, el ID del primario y el error.
+		if syncedState, primaryID, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
 			GlobalNode.StateMutex.Lock()
 			GlobalNode.State = syncedState 
-			// ASUMIMOS que si sincronizamos, el primario es el Nodo 3 (el ID más alto)
-			GlobalNode.PrimaryID = 3 
+			GlobalNode.PrimaryID = primaryID // Establece el ID del primario obtenido.
 			GlobalNode.StateMutex.Unlock()
 			
-			// Reiniciar el contador de latidos para estabilizar el monitor.
-			updateLastHeartbeat()
+			// Reinicia el contador de latidos usando la función atómica de common.
+			common.UpdateLastHeartbeatAtomic() 
 			
 			saveState(GlobalNode.StateFile, GlobalNode.State)
-			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente con Primario %d. Última Seq: %d\n", cfg.ID, GlobalNode.PrimaryID, syncedState.SequenceNumber)
+			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente con Primario %d. Última Seq: %d\n", cfg.ID, primaryID, syncedState.SequenceNumber)
 		} else {
 			fmt.Printf("[Nodo %d] ⚠️ No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
 		}
@@ -91,8 +79,9 @@ func main() {
 		func() { 
 			common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
 				GlobalNode.setPrimaryID(newLeader) 
-				// Reinicia el contador de latidos cuando se acepta un coordinador o se gana
-				updateLastHeartbeat()
+				
+				// Reinicia el contador de latidos al aceptar un coordinador o ganar
+				common.UpdateLastHeartbeatAtomic() 
 				
 				if GlobalNode.IsPrimary { 
 					fmt.Printf("[Nodo %d] He sido elegido como nuevo primario\n", cfg.ID)
@@ -126,8 +115,8 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		resp := common.ClientResponse{
 			IsPrimary: false,
 			PrimaryID: currentPrimaryID,
-			Success:  false,
-			Error:   fmt.Sprintf("Redirección: No soy el primario. Primario actual: %d", currentPrimaryID),
+			Success:   false,
+			Error:     fmt.Sprintf("Redirección: No soy el primario. Primario actual: %d", currentPrimaryID),
 		}
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		json.NewEncoder(w).Encode(resp)
@@ -144,7 +133,7 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		
 		resp = common.ClientResponse{
 			IsPrimary: true,
-			Success:  true,
+			Success:   true,
 			Inventory: inventoryData,
 		}
 	} else if req.Type == common.OpSetQuantity || req.Type == common.OpSetPrice {
@@ -152,7 +141,7 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		
 		resp = common.ClientResponse{
 			IsPrimary: true, 
-			Success:  true, 
+			Success:   true, 
 			SeqNumber: GlobalNode.State.SequenceNumber,
 		}
 	} else {
@@ -208,9 +197,9 @@ func (n *Node) NodeWriteOperation(req common.ClientRequest) {
 	
 	n.State.SequenceNumber++
 	newEvent := common.EventLog{
-		Seq:  n.State.SequenceNumber,
-		Op:  string(req.Type),
-		Item: req.ItemName,
+		Seq:   n.State.SequenceNumber,
+		Op:    string(req.Type),
+		Item:  req.ItemName,
 		Value: req.NewValue,
 	}
 
@@ -320,9 +309,9 @@ func initState(stateFile string, id int) *common.NodeState {
 	return &common.NodeState{
 		SequenceNumber: 0,
 		Inventory: map[string]common.Item{
-			"LAPICES": 	 {Quantity: 100, Price: 120},
-			"LIBROS": 	  {Quantity: 50, Price: 15500},
-			"CUADERNOS":  {Quantity: 80, Price: 3500},
+			"LAPICES": 	  {Quantity: 100, Price: 120},
+			"LIBROS": 	   {Quantity: 50, Price: 15500},
+			"CUADERNOS":    {Quantity: 80, Price: 3500},
 			"CALCULADORAS": {Quantity: 20, Price: 25000},
 		},
 		EventLog: []common.EventLog{},
