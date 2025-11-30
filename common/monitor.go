@@ -41,14 +41,23 @@ func StartHeartbeatSender(myID int, peers []Peer) {
 	}()
 }
 
-func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, startElection func(), setPrimaryID func(int), handleElectionRequest func(int, string, int)) {
-	var lastHeartbeat = time.Now()
-	var mu sync.Mutex{}
+func StartHeartbeatMonitor(
+	myID int,
+	peers []Peer,
+	getPrimaryID func() int,
+	startElection func(),
+	setPrimaryID func(int),
+	handleElectionRequest func(int, string, int),
+) {
+	var lastHeartbeat time.Time = time.Now()
+	var mu sync.Mutex
 
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
+
 			primaryID := getPrimaryID()
+
 			if primaryID == myID {
 				continue
 			}
@@ -90,8 +99,10 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 		if err != nil {
 			continue
 		}
+
 		go func(c net.Conn) {
 			defer c.Close()
+
 			var msg Message
 			if err := json.NewDecoder(c).Decode(&msg); err != nil {
 				return
@@ -101,6 +112,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 			port, _ := strconv.Atoi(portStr)
 
 			switch msg.Type {
+
 			case MsgHeartbeat:
 				primaryID := getPrimaryID()
 				if msg.SenderID == primaryID {
@@ -113,20 +125,27 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 				if msg.SenderID == myID {
 					return
 				}
+
 				setPrimaryID(msg.SenderID)
+
 				mu.Lock()
 				lastHeartbeat = time.Now()
 				mu.Unlock()
-				fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
+
+				fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n",
+					myID, msg.SenderID)
 
 			case MsgElection:
 				if myID > msg.SenderID {
 					handleElectionRequest(myID, host, port)
+
 					if getPrimaryID() != myID {
-						fmt.Printf("[Nodo %d] Soy mayor, pero no primario. Inicio mi propia elección.\n", myID)
+						fmt.Printf("[Nodo %d] Soy mayor, pero no primario. Inicio mi propia elección.\n",
+							myID)
 						startElection()
 					} else {
-						fmt.Printf("[Nodo %d] Primario activo, respondo OK y reafirmo liderazgo a %d.\n", myID, msg.SenderID)
+						fmt.Printf("[Nodo %d] Primario activo, respondo OK y reafirmo liderazgo a %d.\n",
+							myID, msg.SenderID)
 						AnnounceCoordinator(myID, peers)
 					}
 				}
