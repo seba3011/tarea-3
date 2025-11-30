@@ -11,7 +11,7 @@ import (
 const ElectionTimeout = 3 * time.Second
 
 func StartElection(id int, peers []Peer, port int, onNewLeader func(int)) {
-	fmt.Printf("[Nodo %d] \u26a0\ufe0f Iniciando elecci\u00f3n\n", id)
+	fmt.Printf("[Nodo %d] Iniciando elección\n", id) 
 	responses := make(chan bool)
 
 	higherPeers := []Peer{}
