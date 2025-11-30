@@ -327,7 +327,7 @@ func initState(stateFile string, id int) *common.NodeState {
 		EventLog: []common.EventLog{},
 	}
 }
-
+//a
 func (n *Node) getPrimaryID() int {
 	n.StateMutex.RLock()
 	defer n.StateMutex.RUnlock()
