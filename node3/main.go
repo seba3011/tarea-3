@@ -115,8 +115,8 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		resp := common.ClientResponse{
 			IsPrimary: false,
 			PrimaryID: currentPrimaryID,
-			Success:   false,
-			Error:     fmt.Sprintf("Redirección: No soy el primario. Primario actual: %d", currentPrimaryID),
+			Success:  false,
+			Error:   fmt.Sprintf("Redirección: No soy el primario. Primario actual: %d", currentPrimaryID),
 		}
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		json.NewEncoder(w).Encode(resp)
@@ -133,7 +133,7 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		
 		resp = common.ClientResponse{
 			IsPrimary: true,
-			Success:   true,
+			Success:  true,
 			Inventory: inventoryData,
 		}
 	} else if req.Type == common.OpSetQuantity || req.Type == common.OpSetPrice {
@@ -141,7 +141,7 @@ func HandleClientRequest(w http.ResponseWriter, r *http.Request) {
 		
 		resp = common.ClientResponse{
 			IsPrimary: true, 
-			Success:   true, 
+			Success:  true, 
 			SeqNumber: GlobalNode.State.SequenceNumber,
 		}
 	} else {
@@ -197,9 +197,9 @@ func (n *Node) NodeWriteOperation(req common.ClientRequest) {
 	
 	n.State.SequenceNumber++
 	newEvent := common.EventLog{
-		Seq:   n.State.SequenceNumber,
-		Op:    string(req.Type),
-		Item:  req.ItemName,
+		Seq:  n.State.SequenceNumber,
+		Op:  string(req.Type),
+		Item: req.ItemName,
 		Value: req.NewValue,
 	}
 
@@ -309,9 +309,9 @@ func initState(stateFile string, id int) *common.NodeState {
 	return &common.NodeState{
 		SequenceNumber: 0,
 		Inventory: map[string]common.Item{
-			"LAPICES": 	  {Quantity: 100, Price: 120},
-			"LIBROS": 	   {Quantity: 50, Price: 15500},
-			"CUADERNOS":    {Quantity: 80, Price: 3500},
+			"LAPICES": 	 {Quantity: 100, Price: 120},
+			"LIBROS": 	  {Quantity: 50, Price: 15500},
+			"CUADERNOS":  {Quantity: 80, Price: 3500},
 			"CALCULADORAS": {Quantity: 20, Price: 25000},
 		},
 		EventLog: []common.EventLog{},
