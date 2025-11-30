@@ -1,89 +1,96 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-	"sync"
-	"bytes"
-	"net"     
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "os"
+    "sync"
+    "bytes"
+    "net"   
     "strconv"
-	"github.com/seba3011/tarea-3/common"
+    "github.com/seba3011/tarea-3/common"
 )
 
 const (
-	ConfigFile = "node3/config.json"
-	StateFile = "node3/estado_node3.json"
+    ConfigFile = "node3/config.json"
+    StateFile = "node3/estado_node3.json"
 )
 type Node struct {
-	ID          int
-	IsPrimary   bool
-	PrimaryID   int
-	StateFile   string
-	State       *common.NodeState 
-	StateMutex  sync.RWMutex
+    ID     int
+    IsPrimary  bool
+    PrimaryID  int
+    StateFile  string
+    State    *common.NodeState 
+    StateMutex sync.RWMutex
 }
 
 var GlobalNode *Node 
 
 func main() {
-	cfg := loadConfig(ConfigFile)
-	GlobalNode = &Node{
-		ID:           cfg.ID,
-		StateFile:   fmt.Sprintf("node%d/estado_node%d.json", cfg.ID, cfg.ID),
-		IsPrimary:  cfg.IsPrimary,
-		PrimaryID:  -1, 
-		StateMutex: sync.RWMutex{},
-	}
-	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
-	
-	if cfg.IsPrimary {
-		GlobalNode.PrimaryID = cfg.ID
-		GlobalNode.IsPrimary = true
-		fmt.Printf("[Nodo %d] Soy el primario inicial\n", cfg.ID)
-		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
-		common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
-	} else {
-		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
-			GlobalNode.StateMutex.Lock()
-			GlobalNode.State = syncedState 
-			GlobalNode.StateMutex.Unlock()
-			saveState(GlobalNode.StateFile, GlobalNode.State)
-			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente. Última Seq: %d\n", cfg.ID, syncedState.SequenceNumber)
-		} else {
-			fmt.Printf("[Nodo %d] ⚠️ No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
-		}
-	}
-	
-	
-	http.HandleFunc("/client_request", HandleClientRequest)
-	http.HandleFunc("/sync", HandleSyncRequest)
-	
-	go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) 
+    cfg := loadConfig(ConfigFile)
+    GlobalNode = &Node{
+        ID:      cfg.ID,
+        StateFile:  fmt.Sprintf("node%d/estado_node%d.json", cfg.ID, cfg.ID),
+        IsPrimary: cfg.IsPrimary,
+        PrimaryID: -1, 
+        StateMutex: sync.RWMutex{},
+    }
+    GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
+    
+    if cfg.IsPrimary {
+        GlobalNode.PrimaryID = cfg.ID
+        GlobalNode.IsPrimary = true
+        fmt.Printf("[Nodo %d] Soy el primario inicial\n", cfg.ID)
+        common.StartHeartbeatSender(cfg.ID, cfg.Peers)
+        common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
+    } else {
+        // CORRECCIÓN CLAVE: common.RequestSync debe devolver el ID del primario (primaryID)
+        if syncedState, primaryID, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
+            GlobalNode.StateMutex.Lock()
+            GlobalNode.State = syncedState 
+            GlobalNode.PrimaryID = primaryID // <-- 1. Establece el Primario después de la sincronización
+            GlobalNode.StateMutex.Unlock()
+            
+            // 2. Reinicia el contador de latidos del monitor inmediatamente
+            common.UpdateLastHeartbeatAtomic() 
+            
+            saveState(GlobalNode.StateFile, GlobalNode.State)
+            fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente con Primario %d. Última Seq: %d\n", cfg.ID, primaryID, syncedState.SequenceNumber)
+        } else {
+            fmt.Printf("[Nodo %d] ⚠️ No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
+            // Si la sincronización falla, el PrimaryID permanece en -1, lo que dispara la elección
+        }
+    }
+    
+    
+    http.HandleFunc("/client_request", HandleClientRequest)
+    http.HandleFunc("/sync", HandleSyncRequest)
+    
+    go http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port+1000), nil) 
 
-	common.StartHeartbeatMonitor(
-		cfg.ID,
-		cfg.Peers,
-		GlobalNode.getPrimaryID, 
-		func() { 
-			common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
+    common.StartHeartbeatMonitor(
+        cfg.ID,
+        cfg.Peers,
+        GlobalNode.getPrimaryID, 
+        func() { 
+            common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
 
-				GlobalNode.setPrimaryID(newLeader) 
-				
-				if GlobalNode.IsPrimary { 
-					fmt.Printf("[Nodo %d] He sido elegido como nuevo primario\n", cfg.ID)
-					common.StartHeartbeatSender(cfg.ID, cfg.Peers)
+                GlobalNode.setPrimaryID(newLeader) 
+                
+                if GlobalNode.IsPrimary { 
+                    fmt.Printf("[Nodo %d] He sido elegido como nuevo primario\n", cfg.ID)
+                    common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 
-					common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
-				}
-			})
-		},
-		GlobalNode.setPrimaryID, 
-		common.HandleElectionRequest, 
-	)
+                    common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
+                }
+            })
+        },
+        GlobalNode.setPrimaryID, 
+        common.HandleElectionRequest, 
+    )
 
-	select {} 
+    select {} 
 }
 
 
