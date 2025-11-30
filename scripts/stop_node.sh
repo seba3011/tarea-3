@@ -10,9 +10,9 @@ PID_FILE="logs/node$ID.pid"
 
 if [ -f "$PID_FILE" ]; then
   PID=$(cat "$PID_FILE")
-  echo "🛑 Matando nodo $ID (PID $PID)..."
+  echo " Matando nodo $ID (PID $PID)..."
   kill $PID
   rm "$PID_FILE"
 else
-  echo "⚠️ No hay PID registrado para nodo $ID"
+  echo " No hay PID registrado para nodo $ID"
 fi

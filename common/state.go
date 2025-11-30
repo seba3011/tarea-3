@@ -52,21 +52,13 @@ func LoadState(filename string) (*NodeState, error) {
 }
 
 func SaveState(filename string, state *NodeState) error {
-    
-    // 💡 REMOVER: Las líneas mutex.Lock() y defer mutex.Unlock()
-
-    // Este chequeo de Inventario vacío no es necesario si la lógica de initState es robusta, 
-    // pero lo dejamos si es un requisito de tu profesor.
     if state.Inventory == nil {
         state.Inventory = make(map[string]Item)
     }
 
-    data, err := json.MarshalIndent(state, "", "  ") // Nota: cambié el tab a 2 espacios por consistencia
+    data, err := json.MarshalIndent(state, "", "  ") 
     if err != nil {
-        // Mejorar el manejo de errores
         return fmt.Errorf("error serializando estado: %w", err) 
     }
-    
-    // os.WriteFile ya es seguro para E/S a nivel de archivo.
     return os.WriteFile(filename, data, 0644)
 }

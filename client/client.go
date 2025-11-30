@@ -15,15 +15,10 @@ import (
 	"github.com/seba3011/tarea-3/common"
 )
 
-// ===============================================
-// 🎯 MODIFICACIONES PARA USAR LAS IPs REALES
-// ===============================================
-
-// Lista de Nodos Conocidos (IP:Puerto de cada servidor)
 var KnownNodes = []string{
-	"10.10.31.76:9081", // CORRECCIÓN: Puerto 8081 + 1000
-	"10.10.31.77:9082", // CORRECCIÓN: Puerto 8082 + 1000
-	"10.10.31.78:9083", // CORRECCIÓN: Puerto 8083 + 1000
+	"10.10.31.76:9081",
+	"10.10.31.77:9082", 
+	"10.10.31.78:9083", 
 }
 
 const MaxRetries = 3
@@ -31,7 +26,6 @@ const MaxRetries = 3
 var reader = bufio.NewReader(os.Stdin)
 
 func main() {
-	// ... (Resto del código main se mantiene igual)
 	fmt.Println("=======================================")
 	fmt.Println("   Sistema de Inventario Distribuido   ")
 	fmt.Println("=======================================")
@@ -65,32 +59,27 @@ func main() {
 	}
 }
 
-// sendRequestWithDiscovery: Itera sobre los KnownNodes para encontrar uno activo 
-// y luego realiza el descubrimiento del Primario si el contacto inicial es un Secundario.
 func sendRequestWithDiscovery(req common.ClientRequest) (*common.ClientResponse, error) {
-	// 1. Iterar sobre todos los nodos conocidos para encontrar el primer nodo disponible.
+
 	for _, initialAddress := range KnownNodes {
 		resp, err := attemptRequest(req, initialAddress)
-		
-		// Si la solicitud tuvo éxito con un nodo inicial, procedemos con el descubrimiento/operación.
+
 		if err == nil {
-			// El nodo inicial está activo. Ahora intentamos hasta MaxRetries.
+
 			return resolvePrimary(req, initialAddress, resp)
 		}
-		// Si hay error (fallo de conexión), intentamos con el siguiente nodo en la lista.
+
 	}
 
-	// Si ninguno de los 3 nodos responde.
 	return nil, fmt.Errorf("No es posible llevar a cabo la operación: Ninguno de los 3 nodos responde al cliente ")
 }
 
-// Función auxiliar para enviar una petición a una dirección específica.
 func attemptRequest(req common.ClientRequest, targetAddress string) (*common.ClientResponse, error) {
     url := fmt.Sprintf("http://%s/client_request", targetAddress)
     
     reqBody, _ := json.Marshal(req)
     
-    client := &http.Client{Timeout: 3 * time.Second} // Reducir el timeout para detección de fallos de nodo
+    client := &http.Client{Timeout: 3 * time.Second} 
     resp, err := client.Post(url, "application/json", bytes.NewBuffer(reqBody))
     
     if err != nil {
@@ -107,22 +96,18 @@ func attemptRequest(req common.ClientRequest, targetAddress string) (*common.Cli
     return &clientResp, nil
 }
 
-
-// Función que maneja la lógica de redirección y reintento.
 func resolvePrimary(req common.ClientRequest, initialAddress string, initialResp *common.ClientResponse) (*common.ClientResponse, error) {
     currentAddress := initialAddress
     currentResponse := initialResp
 
     for i := 0; i < MaxRetries; i++ {
-        // Si el nodo actual es el primario, la operación fue completada o la respuesta contiene el inventario.
+
         if currentResponse.IsPrimary {
             return currentResponse, nil
         }
 
-        // Si el nodo actual es secundario, debe indicar el ID del primario actual[cite: 94].
         if currentResponse.PrimaryID > 0 {
-            // Asumiendo la convención de IDs 1, 2, 3 que mapean a los índices de KnownNodes.
-            // Esto asume que el ID coincide con el índice + 1 en la lista KnownNodes.
+
             primaryIndex := currentResponse.PrimaryID - 1 
             
             if primaryIndex >= 0 && primaryIndex < len(KnownNodes) {
@@ -130,10 +115,8 @@ func resolvePrimary(req common.ClientRequest, initialAddress string, initialResp
                 fmt.Printf("Redireccionando al Primario (ID %d) en %s...\n", currentResponse.PrimaryID, currentAddress)
                 time.Sleep(500 * time.Millisecond) 
                 
-                // Intentar la solicitud en la nueva dirección (Primario descubierto)
                 resp, err := attemptRequest(req, currentAddress)
                 if err != nil {
-                     // Si el primario descubierto cae, se intenta con otro nodo conocido en el siguiente loop.
                     return nil, fmt.Errorf("El primario (ID %d) no respondió. Reintentando descubrimiento", currentResponse.PrimaryID)
                 }
                 currentResponse = resp
@@ -141,8 +124,7 @@ func resolvePrimary(req common.ClientRequest, initialAddress string, initialResp
                  return nil, fmt.Errorf("Redirección fallida: ID Primario (%d) inválido", currentResponse.PrimaryID)
             }
         } else {
-            // El nodo no es Primario y no conoce al Primario actual (o está en medio de una elección).
-            // La lógica de reintento debería contactar a un nodo diferente.
+
             return nil, fmt.Errorf("El nodo contactado no conoce al Primario actual. Reintento manual necesario")
         }
     }
@@ -152,8 +134,7 @@ func resolvePrimary(req common.ClientRequest, initialAddress string, initialResp
 
 func handleReadInventory() {
 	req := common.ClientRequest{Type: common.OpReadInventory}
-	
-	// Utilizamos la nueva función sendRequestWithDiscovery
+
 	resp, err := sendRequestWithDiscovery(req)
 	
 	if err != nil {
@@ -166,8 +147,7 @@ func handleReadInventory() {
 		fmt.Println("Inventario vacío.")
 		return
 	}
-	
-	// Se debe desplegar la lista de ítems del inventario, con nombre, cantidad y precio[cite: 87].
+
 	fmt.Printf("%-15s %-10s %-10s\n", "ITEM", "CANTIDAD", "PRECIO")
 	fmt.Println("---------------------------------")
 	for name, item := range resp.Inventory {
@@ -177,8 +157,7 @@ func handleReadInventory() {
 
 func handleModifyInventory() {
 	fmt.Println("\n--- MODIFICAR INVENTARIO ---")
-	
-	// ... (La lógica de entrada de usuario para obtener opType, itemName, y newValue se mantiene igual)
+
 	fmt.Print("¿Desea modificar (1) Cantidad (SET_QTY) o (2) Precio (SET_PRICE)?: ")
 	opInput, _ := reader.ReadString('\n')
 	opInput = strings.TrimSpace(opInput)
@@ -211,8 +190,7 @@ func handleModifyInventory() {
 		ItemName: itemName,
 		NewValue: newValue,
 	}
-	
-	// Utilizamos la nueva función sendRequestWithDiscovery
+
 	resp, err := sendRequestWithDiscovery(req)
 	
 	if err != nil {
@@ -221,8 +199,8 @@ func handleModifyInventory() {
 	}
 	
 	if resp.Success {
-		fmt.Printf("✅ Éxito: Operación %s de %s completada. Nueva secuencia: %d\n", opType, itemName, resp.SeqNumber)
+		fmt.Printf("Éxito: Operación %s de %s completada. Nueva secuencia: %d\n", opType, itemName, resp.SeqNumber)
 	} else {
-		fmt.Printf("❌ Fallo: El Primario rechazó la operación. Mensaje: %s\n", resp.Error)
+		fmt.Printf("Fallo: El Primario rechazó la operación. Mensaje: %s\n", resp.Error)
 	}
 }

@@ -36,7 +36,7 @@ waiting:
 	for {
 		select {
 		case <-responses:
-			fmt.Printf("[Nodo %d] ✅ Recibido OK de nodo mayor\n", id)
+			fmt.Printf("[Nodo %d] Recibido OK de nodo mayor\n", id)
 			receivedOK = true
 			break waiting
 		case <-timeout:
@@ -45,16 +45,16 @@ waiting:
 	}
 
 	if receivedOK {
-		fmt.Printf("[Nodo %d] 🕓 Esperando coordinador\n", id)
+		fmt.Printf("[Nodo %d] Esperando coordinador\n", id)
 	} else {
-		fmt.Printf("[Nodo %d] 👑 Me proclamo coordinador\n", id)
+		fmt.Printf("[Nodo %d] Me proclamo coordinador\n", id)
 		AnnounceCoordinator(id, peers)
 		onNewLeader(id)
 	}
 }
 
 func HandleElectionRequest(myID int, senderHost string, senderPort int) {
-	fmt.Printf("[Nodo %d] ↩️ Respondiendo a ELECTION\n", myID)
+	fmt.Printf("[Nodo %d] Respondiendo a ELECTION\n", myID)
 	okMsg := Message{Type: MsgOK, SenderID: myID, Time: time.Now()}
 	sendMessage(senderHost, senderPort, okMsg)
 }
@@ -62,7 +62,6 @@ func HandleElectionRequest(myID int, senderHost string, senderPort int) {
 func AnnounceCoordinator(id int, peers []Peer) {
 	msg := Message{Type: MsgCoordinator, SenderID: id, Time: time.Now()}
 	for _, peer := range peers {
-        // 💡 CORRECCIÓN: NO ENVIAR al ganador
 		if peer.ID != id { 
 			go sendMessage(peer.Host, peer.Port, msg)
 			}
