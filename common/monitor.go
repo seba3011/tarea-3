@@ -152,7 +152,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
 
             switch msg.Type {
             case MsgHeartbeat:
-                updateLastHeartbeatAtomic()
+                UpdateLastHeartbeatAtomic()
                 
             case MsgCoordinator:
                 if msg.SenderID == myID {
@@ -161,7 +161,7 @@ func StartHeartbeatMonitor(myID int, peers []Peer, getPrimaryID func() int, star
                 
                 setPrimaryID(msg.SenderID) 
                 // AHORA se reinicia el contador de latidos al aceptar un nuevo Primario.
-                updateLastHeartbeatAtomic() 
+                UpdateLastHeartbeatAtomic() 
                 fmt.Printf("[Nodo %d] Recibido COORDINATOR. Nuevo Primario: %d. Fin de espera.\n", myID, msg.SenderID)
                 
             case MsgElection:
