@@ -72,9 +72,9 @@ func StartHeartbeatSender(myID int, peers []Peer) {
             select {
             case <-ticker.C:
                 msg := Message{
-                    Type:  MsgHeartbeat,
+                    Type: MsgHeartbeat,
                     SenderID: myID,
-                    Time:   time.Now(),
+                    Time:  time.Now(),
                 }
                 for _, peer := range peers {
                     if peer.ID != myID {
