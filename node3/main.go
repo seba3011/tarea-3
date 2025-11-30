@@ -29,7 +29,7 @@ type Node struct {
 
 var GlobalNode *Node 
 
-// Variables globales para la detección de heartbeat en main.go (solución temporal)
+// Variables y Mutex para controlar el tiempo del último latido de forma segura en main.go
 var lastHeartbeat time.Time
 var heartbeatMutex sync.Mutex
 
@@ -50,6 +50,7 @@ func main() {
 	}
 	GlobalNode.State = initState(GlobalNode.StateFile, GlobalNode.ID)
 	
+	// Inicializar el tiempo de latido
 	updateLastHeartbeat()
 	
 	if cfg.IsPrimary {
@@ -59,12 +60,19 @@ func main() {
 		common.StartHeartbeatSender(cfg.ID, cfg.Peers)
 		common.AnnounceCoordinator(cfg.ID, cfg.Peers) 
 	} else {
+		// Corrección: Intenta sincronizar y establece el PrimaryID conocido.
 		if syncedState, err := common.RequestSync(cfg.ID, cfg.Peers); err == nil {
 			GlobalNode.StateMutex.Lock()
 			GlobalNode.State = syncedState 
+			// ASUMIMOS que si sincronizamos, el primario es el Nodo 3 (el ID más alto)
+			GlobalNode.PrimaryID = 3 
 			GlobalNode.StateMutex.Unlock()
+			
+			// Reiniciar el contador de latidos para estabilizar el monitor.
+			updateLastHeartbeat()
+			
 			saveState(GlobalNode.StateFile, GlobalNode.State)
-			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente. Última Seq: %d\n", cfg.ID, syncedState.SequenceNumber)
+			fmt.Printf("[Nodo %d] 🔁 Estado sincronizado correctamente con Primario %d. Última Seq: %d\n", cfg.ID, GlobalNode.PrimaryID, syncedState.SequenceNumber)
 		} else {
 			fmt.Printf("[Nodo %d] ⚠️ No se pudo sincronizar con primario. Iniciando desde estado local.\n", cfg.ID)
 		}
@@ -83,7 +91,8 @@ func main() {
 		func() { 
 			common.StartElection(cfg.ID, cfg.Peers, cfg.Port, func(newLeader int) {
 				GlobalNode.setPrimaryID(newLeader) 
-				updateLastHeartbeat() // Reinicia el contador de latidos al aceptar un coordinador o ganar
+				// Reinicia el contador de latidos cuando se acepta un coordinador o se gana
+				updateLastHeartbeat()
 				
 				if GlobalNode.IsPrimary { 
 					fmt.Printf("[Nodo %d] He sido elegido como nuevo primario\n", cfg.ID)
