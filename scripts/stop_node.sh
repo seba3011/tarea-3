@@ -21,5 +21,5 @@ if [ -f "$PID_FILE" ]; then
  echo "-> Archivo PID eliminado."
  echo "-> Nodo $ID TERMINADO."
 else
-  echo "-> Error: No hay PID registrado en $PID_FILE. El nodo podría no estar corriendo."
+ echo "-> Error: No hay PID registrado en $PID_FILE. El nodo podría no estar corriendo."
 fi
